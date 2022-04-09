@@ -29,9 +29,9 @@ var (
 
 // ReadCsv accepts a file and returns its content as a multi-dimentional type
 // with lines and each column. Only parses to string type.
-func readCSV(csvfile string) ([][]string, error) {
+func readCSV(file string) ([][]string, error) {
 	//open the file
-	f, err := os.Open(csvfile)
+	f, err := os.Open(file)
 	// error if unable to opent the file
 	if err != nil {
 		log.Fatalf("could not open file: %v\n",err)
@@ -43,14 +43,14 @@ func readCSV(csvfile string) ([][]string, error) {
 	// create the reader
 	csvRead := csv.NewReader(f)
 
-	// gather all data as records and stor in an array
-	records, err := csvRead.ReadAll()
+	// gather all data and stor in an array
+	data, err := csvRead.ReadAll()
 	if err != nil {
 		log.Fatalf("could not parse .csv: %v\n",err)
 		os.Exit(1)
 		return [][]string{}, err
 	}
-	return records, nil
+	return data, nil
 }
 
 func quizTheHuman(csvLoad string, qtimer int) {
