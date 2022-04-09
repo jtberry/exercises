@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	//"sync"
+	"time"
 )
 
 // create the struct for the Question
@@ -19,7 +21,10 @@ type Question struct {
 }
 
 // create the variable for the flags
-var csvLoad *string
+var (
+	csvLoad *string
+	qtimer  *int
+)
 
 
 // ReadCsv accepts a file and returns its content as a multi-dimentional type
@@ -48,49 +53,72 @@ func readCSV(csvfile string) ([][]string, error) {
 	return records, nil
 }
 
-// func parseRecords(lines [][]string) []Question {
-// 	ret := make([]question, len(records))
-// 	for i,line := range lines {
-// 		ret[i] := Question{
-// 			prob: line[0],
-// 			answer: line[1],
-// 		}
-// 	return ret
-// }
-
-func quizTheHuman(csvLoad string) {
-	var i string
+func quizTheHuman(csvLoad string, qtimer int) {
+	// the answer we are expecting from the user
+	var answer string
+	// a counter for how many correct answers we capture
 	correct := 0
-	wrong := 0
+	// initialize the timer and the value we provide, this creates a timer.C channel
+	timer := time.NewTimer(time.Second * time.Duration(qtimer))
 	//now do something with the data once read the csv
 	lines,err := readCSV(csvLoad)
 	if err != nil {
 		panic(err)
 	}
+	totalQue := len(lines)
 	//loop through the lines and turn them into objects
-	for _,line := range lines {
+	for i,line := range lines {
 		question := Question{
 			prob: line[0],
 			answer: line[1],
 		}
-	//problems := parseRecords(lines)
-		fmt.Println(question.prob)
-		fmt.Print("Please provide the answer: ")
-		fmt.Scanf(&i)
-		if i == question.answer {
-			correct++
-		} else if i == "exit" {
-			fmt.Println("Exiting the Game...")
-			os.Exit(1)
-		} else {
-			wrong++
+
+		// creating a channel for the answer to provide the data
+		answerCh := make(chan string)
+		// giving question at the beginning of the loop so that the timer can exit
+		// no matter when timer goes off
+		fmt.Printf("Problem #%v: %v\n",i+1, question.prob)
+		fmt.Println("Answer: ")
+
+		// create a go func to scan for the answer and the provide that answer to the channel
+		// this will allow the timer to interupt if waiting
+		go func() {
+			fmt.Scan(&answer)
+			// return i to the answer channel
+			answerCh <- answer
+		}()
+		// we put the timer in the loop with a select
+
+		select {
+		// once the timer in the background has been reached  we return and exit with message
+		case <-timer.C:
+			fmt.Println("\ntime's up!")
+			totalScore(correct,totalQue)
+			return
+		// while the timer is counting we keep looping through the code
+		// and return the answerCh to i and evaluate
+		case answer := <-answerCh:
+			if answer == question.answer {
+				correct++
+			}else if answer == "exit" {
+				fmt.Println("Exiting the Game...")
+				totalScore(correct,totalQue)
+				return
+			}
+		}
 	}
-	}
-	fmt.Printf("You got %v right out of %v\n",correct,len(lines))
+	totalScore(correct,totalQue)
 }
+
+// creating a function to evaluate the answers
+func totalScore(correct ,totalQue int) {
+	fmt.Printf("You got %v right out of %v\n",correct,totalQue)
+}
+
 
 func init() {
 	csvLoad = flag.String("f", "problems.csv", "this is the default file to load")
+	qtimer = flag.Int("t", 30, "default timer for the questions")
 }
 
 func main() {
@@ -100,6 +128,6 @@ func main() {
 	fmt.Printf("Reading from file: %v\n",*csvLoad)
 	fmt.Println("Please provide the answer to the provided equation")
 	
-	quizTheHuman(*csvLoad)
+	quizTheHuman(*csvLoad,*qtimer)
 	
 }
