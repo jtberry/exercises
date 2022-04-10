@@ -9,8 +9,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
-	//"sync"
+	"strings"
 	"time"
 )
 
@@ -24,6 +25,7 @@ type Question struct {
 var (
 	csvLoad *string
 	qtimer  *int
+	qrando  *bool
 )
 
 
@@ -53,7 +55,7 @@ func readCSV(file string) ([][]string, error) {
 	return data, nil
 }
 
-func quizTheHuman(csvLoad string, qtimer int) {
+func quizTheHuman(csvLoad string, qtimer int, qrando bool) {
 	// the answer we are expecting from the user
 	var answer string
 	// a counter for how many correct answers we capture
@@ -66,12 +68,21 @@ func quizTheHuman(csvLoad string, qtimer int) {
 		panic(err)
 	}
 	totalQue := len(lines)
+	// if the random flag is set to true it will shuffle the questions
+	if qrando {
+		rand.Seed(time.Now().Unix())
+		rand.Shuffle(totalQue, func(i,j int) {
+			lines[i], lines[j] = lines[j], lines[i]
+		})
+	}
 	//loop through the lines and turn them into objects
 	for i,line := range lines {
 		question := Question{
 			prob: line[0],
 			answer: line[1],
 		}
+		fmt.Println(question.prob)
+
 
 		// creating a channel for the answer to provide the data
 		answerCh := make(chan string)
@@ -85,7 +96,7 @@ func quizTheHuman(csvLoad string, qtimer int) {
 		go func() {
 			fmt.Scan(&answer)
 			// return i to the answer channel
-			answerCh <- answer
+			answerCh <- strings.TrimSpace(strings.ToLower(answer))
 		}()
 		// we put the timer in the loop with a select
 
@@ -119,6 +130,7 @@ func totalScore(correct ,totalQue int) {
 func init() {
 	csvLoad = flag.String("f", "problems.csv", "this is the default file to load")
 	qtimer = flag.Int("t", 30, "default timer for the questions")
+	qrando = flag.Bool("r", false, "to randomize or not")
 }
 
 func main() {
@@ -128,6 +140,6 @@ func main() {
 	fmt.Printf("Reading from file: %v\n",*csvLoad)
 	fmt.Println("Please provide the answer to the provided equation")
 	
-	quizTheHuman(*csvLoad,*qtimer)
+	quizTheHuman(*csvLoad, *qtimer, *qrando)
 	
 }
